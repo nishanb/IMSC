@@ -1,0 +1,116 @@
+name: 🔐 AI-Powered Container Vulnerability Analysis
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: vulnerable-test-app
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  security-analysis:
+    name: 🔍 Container Security Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+      
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: 📦 Install Dependencies
+      run: |
+        pip install requests pandas numpy python-dotenv
+        
+    - name: 🐳 Setup Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: 🔨 Build Test Container
+      run: |
+        docker build -t ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} .
+        docker tag ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} ${{ env.IMAGE_NAME }}:latest
+        
+    - name: 📊 Install Security Scanners
+      run: |
+        # Install Trivy
+        sudo apt-get update
+        sudo apt-get install wget apt-transport-https gnupg lsb-release
+        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+        echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+        sudo apt-get update
+        sudo apt-get install trivy
+        
+        # Install Grype
+        curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sudo sh -s -- -b /usr/local/bin
+        
+    - name: 🔍 Run Trivy Container Scan
+      run: |
+        mkdir -p reports
+        echo "🔍 Running Trivy vulnerability scan..."
+        trivy image --format json --output reports/trivy-report.json ${{ env.IMAGE_NAME }}:latest
+        trivy image --format table ${{ env.IMAGE_NAME }}:latest > reports/trivy-report.txt
+        
+    - name: 🔍 Run Grype Container Scan
+      run: |
+        echo "🔍 Running Grype vulnerability scan..."
+        grype ${{ env.IMAGE_NAME }}:latest -o json > reports/grype-report.json
+        grype ${{ env.IMAGE_NAME }}:latest -o table > reports/grype-report.txt
+        
+    - name: 🧠 AI-Powered CVE Analysis
+      env:
+        NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+      run: |
+        echo "🧠 Running AI-powered vulnerability analysis..."
+        python scripts/analyze_with_nvidia_ai.py
+        
+    - name: 🛠️ Generate Auto-Fix Recommendations
+      run: |
+        echo "🛠️ Generating auto-fix recommendations..."
+        python scripts/auto_fix.py
+        
+    - name: 📊 Image Analysis & Slimming Simulation
+      run: |
+        echo "📊 Analyzing image size and layers..."
+        python scripts/image_analysis.py
+        
+    - name: 📋 Generate Security Report
+      run: |
+        echo "📋 Generating comprehensive security report..."
+        python scripts/generate_report.py
+        
+    - name: 📁 Upload Security Reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-reports-${{ github.sha }}
+        path: |
+          reports/
+          *.json
+          *.md
+        retention-days: 30
+        
+    - name: 📊 Display Summary
+      run: |
+        echo "## 🔐 Security Analysis Complete" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📊 Scan Results:" >> $GITHUB_STEP_SUMMARY
+        if [ -f "security-summary.md" ]; then
+          cat security-summary.md >> $GITHUB_STEP_SUMMARY
+        fi
+        
+    - name: ❌ Fail on Critical Vulnerabilities
+      run: |
+        if [ -f "reports/critical-vulns.json" ]; then
+          CRITICAL_COUNT=$(jq '.critical_count // 0' reports/critical-vulns.json)
+          if [ "$CRITICAL_COUNT" -gt 0 ]; then
+            echo "❌ Found $CRITICAL_COUNT critical vulnerabilities that need immediate attention!"
+            exit 1
+          fi
+        fi
+        echo "✅ Security check passed - no critical vulnerabilities found!" 
