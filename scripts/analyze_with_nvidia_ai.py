@@ -14,10 +14,16 @@ import time
 import hashlib
 from datetime import datetime
 import faiss
-import numpy as np
+import pandas as pd
+from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 import glob
 import re
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def load_scan_results() -> Dict[str, Any]:
     """Load vulnerability scan results from Trivy and Grype"""
@@ -42,20 +48,21 @@ def load_scan_results() -> Dict[str, Any]:
 
 class VulnerabilityAnalyzer:
     def __init__(self):
+        """Initialize the vulnerability analyzer with NVIDIA AI integration."""
+        load_dotenv()
+        
+        # Initialize NVIDIA API configuration
         self.nvidia_api_key = os.getenv('NVIDIA_API_KEY')
-        self.openai_base_url = 'https://api.nvcf.nvidia.com/v2/nvcf/pexec/functions/8f4118ba-60a8-4e6b-8574-e38a4067a4a3'
-        self.model_name = 'nvidia/llama-2-70b-chat'
-        self.max_tokens = int(os.getenv('MAX_TOKENS', '2000'))
-        self.cache_dir = "cache"
+        if not self.nvidia_api_key:
+            raise ValueError("NVIDIA_API_KEY environment variable is not set")
+            
+        # Initialize NVIDIA embedding model
         self.embedding_model = SentenceTransformer('nvidia/nv-embedqa-e5-v5')
-        
-        # Create cache directory
-        os.makedirs(self.cache_dir, exist_ok=True)
-        
+            
         # Initialize vector database
-        self.vector_dim = 1024  # Dimension for nv-embedqa-e5-v5
-        self.index = faiss.IndexFlatL2(self.vector_dim)
-        self.document_store = []
+        self.vector_dimension = self.embedding_model.get_sentence_embedding_dimension()
+        self.index = faiss.IndexFlatL2(self.vector_dimension)
+        self.code_files = []
         
         # Initialize code context
         self._initialize_code_context()
@@ -87,12 +94,12 @@ class VulnerabilityAnalyzer:
                 
                 # Add to vector store
                 self.index.add(np.array([embedding]))
-                self.document_store.append(doc)
+                self.code_files.append(doc)
                 
             except Exception as e:
                 print(f"⚠️  Error processing {file_path}: {e}")
         
-        print(f"✅ Processed {len(self.document_store)} files for code context")
+        print(f"✅ Processed {len(self.code_files)} files for code context")
 
     def _get_relevant_code_context(self, query: str, k: int = 3) -> List[Dict]:
         """Retrieve relevant code context using vector similarity search"""
@@ -105,8 +112,8 @@ class VulnerabilityAnalyzer:
         # Get relevant documents
         relevant_docs = []
         for idx in indices[0]:
-            if idx < len(self.document_store):
-                relevant_docs.append(self.document_store[idx])
+            if idx < len(self.code_files):
+                relevant_docs.append(self.code_files[idx])
         
         return relevant_docs
 
@@ -198,7 +205,7 @@ Format your response as a JSON object with the following structure:
     def _make_cached_request(self, endpoint: str, payload: Dict) -> Optional[Dict]:
         """Make cached API request to avoid repeated calls"""
         cache_key = hashlib.md5(json.dumps(payload, sort_keys=True).encode()).hexdigest()
-        cache_file = os.path.join(self.cache_dir, f"{endpoint.replace('/', '_')}_{cache_key}.json")
+        cache_file = os.path.join("cache", f"{endpoint.replace('/', '_')}_{cache_key}.json")
         
         # Try to load from cache
         if os.path.exists(cache_file):
@@ -219,7 +226,7 @@ Format your response as a JSON object with the following structure:
         }
         
         try:
-            url = self.openai_base_url
+            url = 'https://api.nvcf.nvidia.com/v2/nvcf/pexec/functions/8f4118ba-60a8-4e6b-8574-e38a4067a4a3'
             print(f"🌐 Making request to: {url}")
             print(f"📦 Request payload: {json.dumps(payload, indent=2)}")
             
@@ -259,7 +266,7 @@ Format your response as a JSON object with the following structure:
         
         # Make LLM request
         payload = {
-            "model": self.model_name,
+            "model": "nvidia/llama-2-70b-chat",
             "messages": [
                 {
                     "role": "system",
@@ -271,7 +278,7 @@ Format your response as a JSON object with the following structure:
                 }
             ],
             "temperature": 0.1,
-            "max_tokens": self.max_tokens
+            "max_tokens": 2000
         }
         
         result = self._make_cached_request("chat/completions", payload)
@@ -288,7 +295,7 @@ Format your response as a JSON object with the following structure:
                     
                     # Add metadata
                     analysis['timestamp'] = datetime.now().isoformat()
-                    analysis['model_used'] = self.model_name
+                    analysis['model_used'] = "nvidia/llama-2-70b-chat"
                     analysis['cve_id'] = cve_data.get('VulnerabilityID', 'Unknown')
                     analysis['package'] = cve_data.get('PkgName', 'Unknown')
                     
