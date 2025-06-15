@@ -138,13 +138,17 @@ echo "✅ Mock scan reports created"
 export IMAGE_NAME=vulnerable-test-app
 export IMAGE_TAG=latest
 
-# Run the AI analysis pipeline
-echo "🧠 Running AI vulnerability analysis..."
+# Run the NVIDIA LLM Agent analysis pipeline
+echo "🧠 Running NVIDIA LLM Agent vulnerability analysis..."
+export NVIDIA_API_KEY="${NVIDIA_API_KEY:-demo_mode}"
+export OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://integrate.api.nvidia.com/v1}"
+export MODEL_NAME="${MODEL_NAME:-meta/llama-3.1-8b-instruct}"
+
 python3 scripts/analyze_with_nvidia_ai.py
 if [ $? -eq 0 ]; then
-    echo "✅ AI analysis completed"
+    echo "✅ NVIDIA LLM Agent analysis completed"
 else
-    echo "❌ AI analysis failed"
+    echo "❌ NVIDIA LLM Agent analysis failed"
     exit 1
 fi
 
@@ -177,11 +181,13 @@ echo ""
 echo "🎉 AI-Powered Vulnerability Analysis Complete!"
 echo "=============================================="
 
-if [ -f "ai-analysis-report.json" ]; then
-    TOTAL_VULNS=$(python3 -c "import json; data=json.load(open('ai-analysis-report.json')); print(data.get('total_vulnerabilities', 0))")
-    REDUCTION=$(python3 -c "import json; data=json.load(open('ai-analysis-report.json')); print(f\"{data.get('reduction_percentage', 0):.1f}%\")")
+if [ -f "nvidia-llm-analysis-report.json" ]; then
+    TOTAL_VULNS=$(python3 -c "import json; data=json.load(open('nvidia-llm-analysis-report.json')); print(data.get('total_vulnerabilities', 0))")
+    REDUCTION=$(python3 -c "import json; data=json.load(open('nvidia-llm-analysis-report.json')); print(f\"{data.get('reduction_percentage', 0):.1f}%\")")
+    MODEL_NAME=$(python3 -c "import json; data=json.load(open('nvidia-llm-analysis-report.json')); print(data.get('model_info', {}).get('model_name', 'Unknown'))")
     echo "📊 Total vulnerabilities found: $TOTAL_VULNS"
-    echo "📈 AI noise reduction: $REDUCTION"
+    echo "🤖 LLM model used: $MODEL_NAME"
+    echo "📈 NVIDIA LLM noise reduction: $REDUCTION"
 fi
 
 if [ -f "fix-recommendations.json" ]; then

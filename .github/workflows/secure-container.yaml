@@ -63,11 +63,13 @@ jobs:
         grype ${{ env.IMAGE_NAME }}:latest -o json > reports/grype-report.json
         grype ${{ env.IMAGE_NAME }}:latest -o table > reports/grype-report.txt
         
-    - name: 🧠 AI-Powered CVE Analysis
+    - name: 🧠 NVIDIA LLM Agent CVE Analysis
       env:
         NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
+        MODEL_NAME: ${{ secrets.MODEL_NAME }}
       run: |
-        echo "🧠 Running AI-powered vulnerability analysis..."
+        echo "🧠 Running NVIDIA LLM Agent vulnerability analysis..."
         python scripts/analyze_with_nvidia_ai.py
         
     - name: 🛠️ Generate Auto-Fix Recommendations

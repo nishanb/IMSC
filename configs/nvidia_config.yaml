@@ -1,0 +1,119 @@
+# NVIDIA LLM Agent Configuration
+# Based on NVIDIA AI Blueprint: https://github.com/NVIDIA-AI-Blueprints/vulnerability-analysis
+
+# API Configuration
+nvidia:
+  api_key: ${NVIDIA_API_KEY}
+  base_url: ${OPENAI_BASE_URL:-https://integrate.api.nvidia.com/v1}
+  timeout: 60
+  max_retries: 3
+
+# Model Configuration
+model:
+  name: ${MODEL_NAME:-meta/llama-3.1-8b-instruct}
+  max_tokens: 2000
+  temperature: 0.1  # Low temperature for consistent analysis
+  
+# Alternative models available
+models:
+  llama_8b: "meta/llama-3.1-8b-instruct"
+  llama_70b: "meta/llama-3.1-70b-instruct"
+  mixtral: "mistralai/mixtral-8x7b-instruct-v0.1"
+  
+# Embedding Configuration
+embeddings:
+  model: "nvidia/nv-embedqa-e5-v5"
+  dimension: 1024
+  
+# VEX (Vulnerability Exploitability eXchange) Statuses
+vex_statuses:
+  - not_affected
+  - affected
+  - fixed
+  - under_investigation
+  - will_not_fix
+  - fix_planned
+  - affected_vulnerable
+  - affected_not_vulnerable
+  - disputed
+  - rejected
+
+# Vulnerability Categories
+categories:
+  exploitable_code: "Real security risks requiring immediate attention"
+  potentially_exploitable: "Context-dependent risks needing review"
+  base_image_noise: "False positives from base OS packages"
+  false_positives: "Non-applicable vulnerabilities"
+
+# Package Classifications
+packages:
+  base_image:
+    - libc6
+    - libssl
+    - openssl
+    - apt
+    - dpkg
+    - bash
+    - coreutils
+    - util-linux
+    - glibc
+    - zlib
+    - libsystemd
+    - systemd
+    - gcc
+    - binutils
+    - perl
+    - tzdata
+    - ca-certificates
+    
+  application:
+    - nodejs
+    - python
+    - pip
+    - npm
+    - flask
+    - django
+    - express
+    - react
+    - vue
+    - angular
+    - spring
+    - hibernate
+    - maven
+    - gradle
+
+# Known Exploited CVEs (CISA KEV Catalog subset)
+known_exploited:
+  - CVE-2021-44228  # Log4j
+  - CVE-2021-45046  # Log4j
+  - CVE-2022-22965  # Spring4Shell
+  - CVE-2021-34527  # PrintNightmare
+  - CVE-2020-1472   # Zerologon
+  - CVE-2019-0708   # BlueKeep
+  - CVE-2017-0144   # EternalBlue
+
+# Caching Configuration
+cache:
+  enabled: true
+  directory: "cache"
+  ttl_hours: 24
+
+# Analysis Configuration
+analysis:
+  batch_size: 10
+  rate_limit_delay: 0.1
+  confidence_threshold: 0.7
+  
+# Priority Mapping
+priority_mapping:
+  CRITICAL:
+    - Known exploited CVEs
+    - Application dependencies with CRITICAL severity
+  HIGH:
+    - Application dependencies with HIGH severity
+    - Potentially exploitable vulnerabilities
+  MEDIUM:
+    - Application dependencies with MEDIUM severity
+  LOW:
+    - Base image packages
+    - Low severity issues 

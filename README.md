@@ -84,7 +84,10 @@ Add these secrets to your GitHub repository (`Settings` → `Secrets and variabl
 
 | Secret Name | Purpose | Required |
 |-------------|---------|----------|
-| `NVIDIA_API_KEY` | For AI analysis (optional for simulation) | No |
+| `NVIDIA_API_KEY` | NVIDIA API Catalog access for LLM inference | **Yes** |
+| `NGC_API_KEY` | NVIDIA NGC access for NIM containers | Optional |
+| `OPENAI_BASE_URL` | Custom NVIDIA NIM endpoint (if self-hosted) | Optional |
+| `MODEL_NAME` | LLM model to use (default: meta/llama-3.1-8b-instruct) | Optional |
 | `DOCKER_USERNAME` | Docker registry access | Optional |
 | `DOCKER_PASSWORD` | Docker registry token | Optional |
 
@@ -105,6 +108,26 @@ python3 scripts/generate_report.py
 
 Push to main branch or create a pull request to automatically trigger the security analysis pipeline.
 
+### 5. Local NVIDIA NIM Deployment (Optional)
+
+For local development with NVIDIA NIMs:
+
+```bash
+# Requires NVIDIA GPU and Docker Compose
+export NGC_API_KEY="your_ngc_api_key"
+export NVIDIA_API_KEY="your_nvidia_api_key"
+
+# Start NVIDIA NIM services
+docker-compose -f docker-compose.nvidia.yml up -d
+
+# Wait for services to be ready
+docker-compose -f docker-compose.nvidia.yml ps
+
+# Run analysis against local NIMs
+export OPENAI_BASE_URL="http://localhost:8080/v1"
+python3 scripts/analyze_with_nvidia_ai.py
+```
+
 ## 🔬 How It Works
 
 ### Step 1: Container Scanning
@@ -113,21 +136,26 @@ The system uses multiple scanners to capture all potential vulnerabilities:
 - **Grype**: Fast and accurate scanning
 - **Combined Analysis**: Cross-references findings
 
-### Step 2: AI-Powered Analysis
-Our AI engine (simulating NVIDIA Morpheus capabilities) analyzes each CVE:
+### Step 2: NVIDIA LLM Agent Analysis
+Our system uses real NVIDIA LLM agents with advanced prompt engineering:
 
 ```python
-# Example AI decision logic
-if cve_id in known_exploited_cves:
-    category = "exploitable_code"
-    priority = "CRITICAL"
-elif package_name in application_dependencies:
-    category = "potentially_exploitable" 
-    priority = "HIGH"
-elif package_name in base_image_packages:
-    category = "base_image_noise"
-    priority = "LOW"
+# Real NVIDIA LLM Agent Analysis
+agent = NVIDIAVulnerabilityAgent()
+analysis = agent.analyze_vulnerability(cve_data)
+
+# LLM Response includes:
+# - Exploitability assessment (HIGH/MEDIUM/LOW/NONE)  
+# - VEX status (affected_vulnerable, not_affected, etc.)
+# - Detailed reasoning and confidence score
+# - Recommended actions based on container context
 ```
+
+Key features of the LLM analysis:
+- **Advanced Prompting**: Context-aware prompts based on [NVIDIA's research](https://github.com/NVIDIA-AI-Blueprints/vulnerability-analysis)
+- **VEX Standards**: Uses Vulnerability Exploitability eXchange (VEX) categorization
+- **Container Context**: Considers containerized deployment patterns
+- **Caching**: Intelligent caching to avoid redundant API calls
 
 ### Step 3: Intelligent Categorization
 Vulnerabilities are classified into:
@@ -286,18 +314,40 @@ The included `Dockerfile` and dependencies contain **deliberate vulnerabilities*
 - Network segmentation
 - Runtime protection
 
-## 🤝 Contributing
+## 🔬 Technical Implementation
 
-We welcome contributions! Areas for improvement:
+### NVIDIA LLM Agent Architecture
 
-- 🧠 **AI Model Enhancement**: Better vulnerability classification
-- 🔌 **Tool Integrations**: Support for more scanners
-- 📊 **Reporting**: Enhanced visualizations
-- 🚀 **Performance**: Faster analysis pipeline
+Our implementation follows the [NVIDIA AI Blueprint for Vulnerability Analysis](https://github.com/NVIDIA-AI-Blueprints/vulnerability-analysis):
+
+- **LLM Models**: Meta Llama 3.1 (8B/70B) via NVIDIA NIM
+- **Embeddings**: NVIDIA NV-EmbedQA-E5-v5 for semantic search
+- **Vector DB**: Milvus for CVE knowledge retrieval
+- **Caching**: Redis + NGINX proxy for API optimization
+- **VEX Standards**: Full VEX status categorization support
+
+### Prompt Engineering Strategy
+
+Based on NVIDIA's research, our prompts include:
+
+1. **Context Setting**: Container-specific vulnerability analysis
+2. **Knowledge Injection**: Known exploited CVE database (CISA KEV)
+3. **Reasoning Chain**: Step-by-step exploitability assessment
+4. **VEX Classification**: Structured vulnerability status output
+5. **Confidence Scoring**: ML-based certainty measurements
+
+### Performance Optimizations
+
+- **Intelligent Caching**: 24-hour TTL for CVE analysis results
+- **Batch Processing**: Concurrent LLM requests with rate limiting
+- **Vector Search**: Semantic similarity for duplicate CVE detection
+- **API Efficiency**: Request deduplication and response compression
 
 ## 🔗 References
 
-- [NVIDIA Morpheus](https://developer.nvidia.com/morpheus)
+- [NVIDIA AI Blueprint - Vulnerability Analysis](https://github.com/NVIDIA-AI-Blueprints/vulnerability-analysis)
+- [NVIDIA NIM Documentation](https://docs.nvidia.com/nim/)
+- [VEX Specification](https://www.cisa.gov/resources-tools/resources/vulnerability-exploitability-exchange-vex)
 - [Trivy Scanner](https://github.com/aquasecurity/trivy)
 - [Grype Scanner](https://github.com/anchore/grype)
 - [Container Security Best Practices](https://kubernetes.io/docs/concepts/security/)

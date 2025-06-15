@@ -1,0 +1,153 @@
+# Docker Compose for NVIDIA NIM Vulnerability Analysis
+# Based on NVIDIA AI Blueprint: https://github.com/NVIDIA-AI-Blueprints/vulnerability-analysis
+
+version: '3.8'
+
+services:
+  # NVIDIA NIM LLM Service
+  llm-nim:
+    image: nvcr.io/nim/meta/llama-3.1-8b-instruct:latest
+    container_name: vulnerability-analysis-llm
+    environment:
+      - NGC_API_KEY=${NGC_API_KEY}
+      - NIM_CACHE_PATH=/opt/nim/.cache
+    volumes:
+      - nim-cache:/opt/nim/.cache
+    ports:
+      - "8000:8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Embedding Model NIM
+  embedding-nim:
+    image: nvcr.io/nim/nvidia/nv-embedqa-e5-v5:latest
+    container_name: vulnerability-analysis-embedding
+    environment:
+      - NGC_API_KEY=${NGC_API_KEY}
+      - NIM_CACHE_PATH=/opt/nim/.cache
+    volumes:
+      - embedding-cache:/opt/nim/.cache
+    ports:
+      - "8001:8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # Redis for Caching
+  redis:
+    image: redis:7-alpine
+    container_name: vulnerability-analysis-cache
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+
+  # Vector Database (Milvus)
+  milvus:
+    image: milvusdb/milvus:latest
+    container_name: vulnerability-analysis-vectordb
+    environment:
+      - ETCD_ENDPOINTS=etcd:2379
+      - MINIO_ADDRESS=minio:9000
+    ports:
+      - "19530:19530"
+    depends_on:
+      - etcd
+      - minio
+
+  # ETCD for Milvus
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.0
+    container_name: vulnerability-analysis-etcd
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+
+  # MinIO for Milvus
+  minio:
+    image: minio/minio:latest
+    container_name: vulnerability-analysis-minio
+    environment:
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    command: minio server /data --console-address ":9001"
+
+  # NGINX Caching Proxy
+  nginx-cache:
+    image: nginx:alpine
+    container_name: vulnerability-analysis-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - nginx-cache:/var/cache/nginx
+    depends_on:
+      - llm-nim
+      - embedding-nim
+
+  # Vulnerability Analysis Service
+  vuln-analyzer:
+    build:
+      context: .
+      dockerfile: Dockerfile.analyzer
+    container_name: vulnerability-analysis-service
+    environment:
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY}
+      - OPENAI_BASE_URL=http://nginx-cache:80/v1
+      - MODEL_NAME=meta/llama-3.1-8b-instruct
+      - REDIS_URL=redis://redis:6379
+      - MILVUS_HOST=milvus
+      - MILVUS_PORT=19530
+    volumes:
+      - ./scripts:/app/scripts
+      - ./configs:/app/configs
+      - ./reports:/app/reports
+      - cache-data:/app/cache
+    depends_on:
+      - llm-nim
+      - embedding-nim
+      - redis
+      - milvus
+      - nginx-cache
+
+volumes:
+  nim-cache:
+    driver: local
+  embedding-cache:
+    driver: local
+  redis-data:
+    driver: local
+  milvus-data:
+    driver: local
+  minio-data:
+    driver: local
+  nginx-cache:
+    driver: local
+  cache-data:
+    driver: local
+
+networks:
+  default:
+    name: vulnerability-analysis-network 
