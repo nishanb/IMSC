@@ -42,7 +42,7 @@ class NVIDIAVulnerabilityAgent:
     
     def __init__(self):
         self.nvidia_api_key = os.getenv('NVIDIA_API_KEY')
-        self.openai_base_url = 'https://api.nvcf.nvidia.com/v2/nvcf/pexec/functions/chat-completions'
+        self.openai_base_url = 'https://api.nvcf.nvidia.com/v2/nvcf/pexec/functions/8f4118ba-60a8-4e6b-8574-e38a4067a4a3'  # NVIDIA's chat completions function ID
         self.model_name = 'nvidia/llama-2-70b-chat'
         self.max_tokens = int(os.getenv('MAX_TOKENS', '2000'))
         self.cache_dir = "cache"
