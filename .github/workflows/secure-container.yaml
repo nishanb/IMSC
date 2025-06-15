@@ -15,7 +15,7 @@ jobs:
   security-analysis:
     name: 🔍 Container Security Analysis
     runs-on: ubuntu-latest
-    
+    environment: ANALYSIS
     steps:
     - name: 📥 Checkout Code
       uses: actions/checkout@v4
