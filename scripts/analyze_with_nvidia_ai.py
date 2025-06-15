@@ -16,7 +16,6 @@ from datetime import datetime
 import faiss
 import pandas as pd
 from dotenv import load_dotenv
-from sentence_transformers import SentenceTransformer
 import glob
 import re
 import logging
@@ -56,60 +55,68 @@ class VulnerabilityAnalyzer:
         if not self.nvidia_api_key:
             raise ValueError("NVIDIA_API_KEY environment variable is not set")
             
-        # Initialize NVIDIA embedding model
-        self.embedding_model = SentenceTransformer('nvidia/nv-embedqa-e5-v5')
-            
         # Initialize vector database
-        self.vector_dimension = self.embedding_model.get_sentence_embedding_dimension()
+        self.vector_dimension = 1024  # Dimension for NVIDIA's embedding model
         self.index = faiss.IndexFlatL2(self.vector_dimension)
         self.code_files = []
         
         # Initialize code context
         self._initialize_code_context()
 
+    def _get_embedding(self, text: str) -> np.ndarray:
+        """Get embedding from NVIDIA's NIM service."""
+        url = "https://api.nvcf.nvidia.com/v2/nvcf/pexec/functions/8f4118ba-60a8-4e6b-8574-e38a4067a4a3"
+        headers = {
+            "Authorization": f"Bearer {self.nvidia_api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "nvidia/nv-embedqa-e5-v5",
+            "input": text,
+            "truncate": "END",
+            "max_batch_size": 128
+        }
+        
+        response = requests.post(url, headers=headers, json=payload)
+        if response.status_code == 200:
+            return np.array(response.json()["embedding"])
+        else:
+            raise Exception(f"Failed to get embedding: {response.text}")
+
     def _initialize_code_context(self):
-        """Initialize code context by processing repository files"""
-        print("📚 Initializing code context...")
+        """Initialize code context by processing relevant code files."""
+        code_extensions = ['.py', '.js', '.ts', '.java', '.go', '.rb', '.php']
         
-        # Get all relevant code files
-        code_files = []
-        for ext in ['.py', '.js', '.ts', '.java', '.go', '.rb', '.php']:
-            code_files.extend(glob.glob(f'**/*{ext}', recursive=True))
-        
-        # Process each file
-        for file_path in code_files:
-            try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
+        for ext in code_extensions:
+            for file_path in glob.glob(f"**/*{ext}", recursive=True):
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                        
+                    # Create document with metadata
+                    doc = {
+                        'content': content,
+                        'file_path': file_path,
+                        'type': 'code'
+                    }
                     
-                # Create document with metadata
-                doc = {
-                    'content': content,
-                    'path': file_path,
-                    'type': 'code'
-                }
-                
-                # Generate embedding
-                embedding = self.embedding_model.encode(content)
-                
-                # Add to vector store
-                self.index.add(np.array([embedding]))
-                self.code_files.append(doc)
-                
-            except Exception as e:
-                print(f"⚠️  Error processing {file_path}: {e}")
+                    # Get embedding
+                    embedding = self._get_embedding(content)
+                    
+                    # Add to vector store
+                    self.index.add(np.array([embedding]))
+                    self.code_files.append(doc)
+                    
+                except Exception as e:
+                    logger.warning(f"Error processing {file_path}: {e}")
         
-        print(f"✅ Processed {len(self.code_files)} files for code context")
+        logger.info(f"Processed {len(self.code_files)} files for code context")
 
     def _get_relevant_code_context(self, query: str, k: int = 3) -> List[Dict]:
-        """Retrieve relevant code context using vector similarity search"""
-        # Generate query embedding
-        query_embedding = self.embedding_model.encode(query)
-        
-        # Search in vector database
+        """Get relevant code context based on semantic similarity."""
+        query_embedding = self._get_embedding(query)
         distances, indices = self.index.search(np.array([query_embedding]), k)
         
-        # Get relevant documents
         relevant_docs = []
         for idx in indices[0]:
             if idx < len(self.code_files):
@@ -143,7 +150,7 @@ class VulnerabilityAnalyzer:
         if relevant_code:
             code_context = "\nRelevant Code Context:\n"
             for doc in relevant_code:
-                code_context += f"\nFile: {doc['path']}\n"
+                code_context += f"\nFile: {doc['file_path']}\n"
                 # Extract relevant lines (first 10 lines for brevity)
                 lines = doc['content'].split('\n')[:10]
                 code_context += '\n'.join(lines) + "\n"
