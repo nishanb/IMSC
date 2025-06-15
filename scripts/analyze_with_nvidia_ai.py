@@ -84,7 +84,8 @@ class NVIDIAVulnerabilityAgent:
             # Use the complete URL directly since it's already the full endpoint
             url = self.openai_base_url
             
-            print(f"🌐 Making request to: {url}")  # Debug log
+            print(f"🌐 Making request to: {url}")
+            print(f"📦 Request payload: {json.dumps(payload, indent=2)}")
             
             response = requests.post(
                 url,
@@ -101,6 +102,11 @@ class NVIDIAVulnerabilityAgent:
                 return result
             else:
                 print(f"❌ API request failed: {response.status_code}")
+                print(f"📄 Response headers: {dict(response.headers)}")
+                try:
+                    print(f"📄 Response body: {response.text}")
+                except:
+                    print("📄 Could not read response body")
                 return None
                 
         except Exception as e:
