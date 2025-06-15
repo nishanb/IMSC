@@ -42,8 +42,8 @@ class NVIDIAVulnerabilityAgent:
     
     def __init__(self):
         self.nvidia_api_key = os.getenv('NVIDIA_API_KEY')
-        self.openai_base_url = os.getenv('OPENAI_BASE_URL', 'https://integrate.api.nvidia.com/v1')
-        self.model_name = os.getenv('MODEL_NAME', 'meta/llama-3.1-8b-instruct')
+        self.openai_base_url = 'https://api.nvcf.nvidia.com/v2/nvcf/pexec/functions/chat-completions'
+        self.model_name = 'nvidia/llama-2-70b-chat'
         self.max_tokens = int(os.getenv('MAX_TOKENS', '2000'))
         self.cache_dir = "cache"
         
@@ -373,7 +373,7 @@ def main():
         'reduction_percentage': round(noise_reduction_percentage, 2),
         'model_info': {
             'nvidia_api_endpoint': os.getenv('OPENAI_BASE_URL', 'https://integrate.api.nvidia.com/v1'),
-            'model_name': os.getenv('MODEL_NAME', 'meta/llama-3.1-8b-instruct'),
+            'model_name': os.getenv('MODEL_NAME', 'nvidia/llama-2-70b-chat'),
             'analysis_method': 'nvidia_llm_agent'
         }
     }
