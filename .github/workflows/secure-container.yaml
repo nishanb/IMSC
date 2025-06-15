@@ -28,6 +28,7 @@ jobs:
     - name: 📦 Install Dependencies
       run: |
         pip install requests pandas numpy python-dotenv
+        pip install faiss-cpu sentence-transformers
         
     - name: 🐳 Setup Docker Buildx
       uses: docker/setup-buildx-action@v3
