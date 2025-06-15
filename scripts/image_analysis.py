@@ -107,6 +107,8 @@ def parse_size_to_bytes(size_str: str) -> int:
     
     if size_str.endswith('B'):
         return int(float(size_str[:-1]))
+    elif size_str.endswith('K'):
+        return int(float(size_str[:-1]) * 1024)
     elif size_str.endswith('KB'):
         return int(float(size_str[:-2]) * 1024)
     elif size_str.endswith('MB'):
