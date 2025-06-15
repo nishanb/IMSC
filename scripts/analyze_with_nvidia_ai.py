@@ -81,8 +81,15 @@ class NVIDIAVulnerabilityAgent:
         }
         
         try:
+            # Ensure base URL ends with a slash and endpoint doesn't start with one
+            base_url = self.openai_base_url.rstrip('/')
+            endpoint = endpoint.lstrip('/')
+            url = f"{base_url}/{endpoint}"
+            
+            print(f"🌐 Making request to: {url}")  # Debug log
+            
             response = requests.post(
-                f"{self.openai_base_url}/{endpoint}",
+                url,
                 headers=headers,
                 json=payload,
                 timeout=60
