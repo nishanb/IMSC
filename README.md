@@ -82,14 +82,57 @@ chmod +x start.sh
 
 Add these secrets to your GitHub repository (`Settings` → `Secrets and variables` → `Actions`):
 
-| Secret Name | Purpose | Required |
-|-------------|---------|----------|
-| `NVIDIA_API_KEY` | NVIDIA API Catalog access for LLM inference | **Yes** |
-| `NGC_API_KEY` | NVIDIA NGC access for NIM containers | Optional |
-| `OPENAI_BASE_URL` | Custom NVIDIA NIM endpoint (if self-hosted) | Optional |
-| `MODEL_NAME` | LLM model to use (default: meta/llama-3.1-8b-instruct) | Optional |
-| `DOCKER_USERNAME` | Docker registry access | Optional |
-| `DOCKER_PASSWORD` | Docker registry token | Optional |
+| Secret Name | Purpose | Required | How to Get |
+|-------------|---------|----------|------------|
+| `NVIDIA_API_KEY` | NVIDIA API Catalog access for LLM inference | **Yes** | 1. Go to [NVIDIA API Catalog](https://developer.nvidia.com/api-catalog)<br>2. Sign up/Login<br>3. Navigate to API Keys<br>4. Create new API key |
+| `OPENAI_BASE_URL` | Custom NVIDIA NIM endpoint | Optional | Default: `https://integrate.api.nvidia.com/v1`<br>For self-hosted: `http://localhost:8080/v1` |
+| `MODEL_NAME` | LLM model to use | Optional | Default: `meta/llama-3.1-8b-instruct`<br>Options:<br>- `meta/llama-3.1-8b-instruct`<br>- `meta/llama-3.1-70b-instruct`<br>- `mistral/mistral-7b-instruct` |
+
+#### Setting up API Keys
+
+1. **NVIDIA API Key Setup**:
+   ```bash
+   # Local development
+   export NVIDIA_API_KEY="your_nvidia_api_key"
+   
+   # GitHub Actions
+   # Add to repository secrets
+   ```
+
+2. **Optional: Self-hosted NVIDIA NIM**:
+   ```bash
+   # Set custom endpoint for self-hosted NIM
+   export OPENAI_BASE_URL="http://localhost:8080/v1"
+   
+   # GitHub Actions
+   # Add to repository secrets
+   ```
+
+3. **Model Selection**:
+   ```bash
+   # Choose different model
+   export MODEL_NAME="meta/llama-3.1-70b-instruct"
+   
+   # GitHub Actions
+   # Add to repository secrets
+   ```
+
+#### Verifying API Key Setup
+
+To verify your API key is working:
+
+```bash
+# Test NVIDIA API access
+curl -X POST https://integrate.api.nvidia.com/v1/chat/completions \
+  -H "Authorization: Bearer $NVIDIA_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "meta/llama-3.1-8b-instruct",
+    "messages": [{"role": "user", "content": "Hello"}]
+  }'
+```
+
+If you get a valid response, your API key is working correctly.
 
 ### 3. Test Locally
 

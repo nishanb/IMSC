@@ -50,18 +50,21 @@ jobs:
         # Install Grype
         curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sudo sh -s -- -b /usr/local/bin
         
-    - name: 🔍 Run Trivy Container Scan
+    - name: 🔍 Run Vulnerability Scans
       run: |
         mkdir -p reports
         echo "🔍 Running Trivy vulnerability scan..."
         trivy image --format json --output reports/trivy-report.json ${{ env.IMAGE_NAME }}:latest
         trivy image --format table ${{ env.IMAGE_NAME }}:latest > reports/trivy-report.txt
         
-    - name: 🔍 Run Grype Container Scan
-      run: |
         echo "🔍 Running Grype vulnerability scan..."
         grype ${{ env.IMAGE_NAME }}:latest -o json > reports/grype-report.json
         grype ${{ env.IMAGE_NAME }}:latest -o table > reports/grype-report.txt
+        
+    - name: 📊 Image Analysis & Slimming Simulation
+      run: |
+        echo "📊 Analyzing image size and layers..."
+        python scripts/image_analysis.py
         
     - name: 🧠 NVIDIA LLM Agent CVE Analysis
       env:
@@ -76,11 +79,6 @@ jobs:
       run: |
         echo "🛠️ Generating auto-fix recommendations..."
         python scripts/auto_fix.py
-        
-    - name: 📊 Image Analysis & Slimming Simulation
-      run: |
-        echo "📊 Analyzing image size and layers..."
-        python scripts/image_analysis.py
         
     - name: 📋 Generate Security Report
       run: |

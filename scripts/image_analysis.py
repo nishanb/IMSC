@@ -103,23 +103,31 @@ def parse_size_to_bytes(size_str: str) -> int:
     if not size_str or size_str == '0':
         return 0
     
-    size_str = size_str.strip().upper()
-    
-    if size_str.endswith('B'):
-        return int(float(size_str[:-1]))
-    elif size_str.endswith('K'):
-        return int(float(size_str[:-1]) * 1024)
-    elif size_str.endswith('KB'):
-        return int(float(size_str[:-2]) * 1024)
-    elif size_str.endswith('MB'):
-        return int(float(size_str[:-2]) * 1024 * 1024)
-    elif size_str.endswith('GB'):
-        return int(float(size_str[:-2]) * 1024 * 1024 * 1024)
-    else:
-        try:
+    try:
+        # Remove any whitespace and convert to uppercase
+        size_str = size_str.strip().upper()
+        
+        # Handle different size formats
+        if size_str.endswith('B'):
+            return int(float(size_str[:-1]))
+        elif size_str.endswith('K'):
+            return int(float(size_str[:-1]) * 1024)
+        elif size_str.endswith('KB'):
+            return int(float(size_str[:-2]) * 1024)
+        elif size_str.endswith('M'):
+            return int(float(size_str[:-1]) * 1024 * 1024)
+        elif size_str.endswith('MB'):
+            return int(float(size_str[:-2]) * 1024 * 1024)
+        elif size_str.endswith('G'):
+            return int(float(size_str[:-1]) * 1024 * 1024 * 1024)
+        elif size_str.endswith('GB'):
+            return int(float(size_str[:-2]) * 1024 * 1024 * 1024)
+        else:
+            # Try to parse as a plain number
             return int(float(size_str))
-        except:
-            return 0
+    except (ValueError, TypeError):
+        print(f"Warning: Could not parse size string: {size_str}")
+        return 0
 
 def simulate_slimming(image_info: Dict[str, Any]) -> Dict[str, Any]:
     """Simulate image slimming benefits"""
