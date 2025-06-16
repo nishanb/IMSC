@@ -77,11 +77,18 @@ class VulnerabilityAnalyzer:
             "max_batch_size": 128
         }
         
-        response = requests.post(url, headers=headers, json=payload)
-        if response.status_code == 200:
-            return np.array(response.json()["embedding"])
-        else:
-            raise Exception(f"Failed to get embedding: {response.text}")
+        try:
+            response = requests.post(url, headers=headers, json=payload)
+            if response.status_code == 200:
+                return np.array(response.json()["embedding"])
+            else:
+                logger.error(f"Failed to get embedding. Status: {response.status_code}, Response: {response.text}")
+                # Return a zero vector as fallback to allow processing to continue
+                return np.zeros(self.vector_dimension)
+        except Exception as e:
+            logger.error(f"Error getting embedding: {str(e)}")
+            # Return a zero vector as fallback to allow processing to continue
+            return np.zeros(self.vector_dimension)
 
     def _initialize_code_context(self):
         """Initialize code context by processing relevant code files."""
@@ -114,15 +121,19 @@ class VulnerabilityAnalyzer:
 
     def _get_relevant_code_context(self, query: str, k: int = 3) -> List[Dict]:
         """Get relevant code context based on semantic similarity."""
-        query_embedding = self._get_embedding(query)
-        distances, indices = self.index.search(np.array([query_embedding]), k)
-        
-        relevant_docs = []
-        for idx in indices[0]:
-            if idx < len(self.code_files):
-                relevant_docs.append(self.code_files[idx])
-        
-        return relevant_docs
+        try:
+            query_embedding = self._get_embedding(query)
+            distances, indices = self.index.search(np.array([query_embedding]), k)
+            
+            relevant_docs = []
+            for idx in indices[0]:
+                if idx < len(self.code_files):
+                    relevant_docs.append(self.code_files[idx])
+            
+            return relevant_docs
+        except Exception as e:
+            logger.error(f"Error getting relevant code context: {str(e)}")
+            return []
 
     def _create_vulnerability_context(self, cve_data: Dict) -> str:
         """Create rich context for vulnerability analysis"""
